@@ -35,7 +35,7 @@ local CONFIG = {
 
     -- Movement
     MovementMode = "Tween",
-    AttackDistance = 8,
+    AttackDistance = 2,
     TweenSpeed = 100,
 
     -- Bug Farming
