@@ -467,4 +467,7 @@ Players.PlayerRemoving:Connect(function(player)
 
 end)
 
+-- Collectible Farming
+CollectibleEnabled = false,
+CollectibleMode = "Orb",
 print("[Bug Evolution] Main controller loaded.")
