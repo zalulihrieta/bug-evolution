@@ -275,6 +275,10 @@ end
 -- VOIDORB: RANDOM
 --==================================================
 
+function Scanner:GetVoidOrbCount()
+    return #self:Scan("VoidOrb")
+end
+
 function Scanner:GetVoidOrbTarget()
 
     local results = self:Scan("VoidOrb")
