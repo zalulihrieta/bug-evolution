@@ -33,10 +33,12 @@ local CONFIG = {
     SizePriority = "Largest First",
     ScanInterval = 1,
 
-    -- Movement
-    MovementMode = "Tween",
-    AttackDistance = 2,
-    TweenSpeed = 100,
+  -- Movement
+MovementMode = "Tween",
+BugAttackDistance = 2,
+BreakableHeight = 2.5,
+TeleportDelay = 0.3,
+TweenSpeed = 100,
 
     -- Bug Farming
     FarmEnabled = false,
