@@ -33,12 +33,11 @@ local CONFIG = {
     SizePriority = "Largest First",
     ScanInterval = 1,
 
-  -- Movement
-MovementMode = "Tween",
-BugAttackDistance = 2,
-BreakableHeight = 2.5,
-TeleportDelay = 0.3,
-TweenSpeed = 100,
+    -- Movement (shared by Bug + Breakable farming)
+    MovementMode = "Tween",
+    AttackDistance = 2,
+    TeleportDelay = 0.2,
+    TweenSpeed = 150,
 
     -- Bug Farming
     FarmEnabled = false,
