@@ -1,7 +1,7 @@
 --[[
     BUG EVOLUTION
     Main Controller
-    Version: 1.1.0
+    Version: 1.2.0
 
     Modules:
     - Bug Scanner
@@ -497,7 +497,7 @@ Window:AddDropdown(
 Window:AddSlider(
     FarmTab,
     "Attack Distance",
-    3,
+    2,
     20,
     CONFIG.AttackDistance,
 
@@ -525,6 +525,11 @@ local CollectibleStatusLabel = Window:AddLabel(
 local CollectibleTargetLabel = Window:AddLabel(
     CollectiblesTab,
     "Target: None"
+)
+
+local VoidOrbCountLabel = Window:AddLabel(
+    CollectiblesTab,
+    "VoidOrbs Available: 0"
 )
 
 Window:AddDropdown(
@@ -757,7 +762,7 @@ Window:AddSection(
 
 Window:AddLabel(
     SettingsTab,
-    "Bug Evolution v1.1.0"
+    "Bug Evolution v1.2.0"
 )
 
 Window:AddButton(
@@ -923,6 +928,16 @@ task.spawn(function()
             "Target: " .. CollectibleTargetName
         )
 
+        local voidOrbCount = 0
+        pcall(function()
+            voidOrbCount = CollectibleScannerController:GetVoidOrbCount()
+        end)
+
+        UpdateLabel(
+            VoidOrbCountLabel,
+            "VoidOrbs Available: " .. tostring(voidOrbCount)
+        )
+
     end
 
 end)
@@ -947,11 +962,11 @@ SafeCall(
 Window:SetTab("Farm")
 
 Notify(
-    "BUG EVOLUTION v1.1.0 LOADED",
+    "BUG EVOLUTION v1.2.0 LOADED",
     5
 )
 
 print("================================")
-print("       BUG EVOLUTION v1.1.0")
+print("       BUG EVOLUTION v1.2.0")
 print("       GUI INITIALIZED")
 print("================================")
