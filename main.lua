@@ -1,10 +1,17 @@
 --[[
     BUG EVOLUTION
     Main Controller
-    Version: 1.0.0
+    Version: 1.1.0
 
-    Client-side executor script.
-    Requires loadstring and game:HttpGet support.
+    Modules:
+    - Bug Scanner
+    - Bug Farming
+    - Collectible Scanner
+    - Collectible Farming
+    - Movement
+    - ESP
+
+    GUI API compatible with gui.lua v1.0
 ]]
 
 --==================================================
@@ -21,7 +28,7 @@ local LocalPlayer = Players.LocalPlayer
 
 local CONFIG = {
     -- Bug Scanner
-    BugFolderName = "Bugs", -- Provisional: belum dikonfirmasi
+    BugFolderName = "Bugs",
     SelectedSpecies = "All Bugs",
     SizePriority = "Largest First",
     ScanInterval = 1,
@@ -52,30 +59,44 @@ local BASE_URL =
     "https://raw.githubusercontent.com/zalulihrieta/bug-evolution/main/"
 
 local function LoadModule(path)
-    local url = BASE_URL .. path
 
     local success, result = pcall(function()
-        local source = game:HttpGet(url)
 
-        local moduleFunction, compileError = loadstring(source)
+        local source = game:HttpGet(
+            BASE_URL .. path
+        )
 
-        if not moduleFunction then
-            error(compileError)
-        end
+        assert(
+            type(source) == "string"
+                and #source > 0,
+            "Empty module source: " .. path
+        )
 
-        return moduleFunction()
+        local compiled, compileError =
+            loadstring(source)
+
+        assert(
+            compiled,
+            compileError or "Compilation failed"
+        )
+
+        return compiled()
+
     end)
 
     if not success then
+
         error(
-            "[Bug Evolution] Failed to load "
+            "[Bug Evolution] Module Error: "
             .. path
             .. "\n"
             .. tostring(result)
         )
+
     end
 
     return result
+
 end
 
 --==================================================
@@ -84,9 +105,14 @@ end
 
 local GUI = LoadModule("gui.lua")
 
-local Scanner = LoadModule("modules/scanner.lua")
-local Movement = LoadModule("modules/movement.lua")
-local Farming = LoadModule("modules/farming.lua")
+local Scanner =
+    LoadModule("modules/scanner.lua")
+
+local Movement =
+    LoadModule("modules/movement.lua")
+
+local Farming =
+    LoadModule("modules/farming.lua")
 
 local CollectibleScanner =
     LoadModule("modules/collectible_scanner.lua")
@@ -94,23 +120,55 @@ local CollectibleScanner =
 local CollectibleFarming =
     LoadModule("modules/collectible_farming.lua")
 
-local ESP = LoadModule("modules/esp.lua")
+local ESP =
+    LoadModule("modules/esp.lua")
+
+--==================================================
+-- GUI INITIALIZATION
+--==================================================
+
+-- IMPORTANT:
+-- gui.lua returns a GUI table.
+-- Do NOT use GUI().
+
+local Window = GUI
+
+--==================================================
+-- CREATE TABS
+--==================================================
+
+-- CreateTab returns a ScrollingFrame.
+-- Every GUI component must receive that page.
+
+local FarmTab =
+    Window:CreateTab("Farm", 1)
+
+local CollectiblesTab =
+    Window:CreateTab("Collectibles", 2)
+
+local BugsTab =
+    Window:CreateTab("Bugs", 3)
+
+local ESPTab =
+    Window:CreateTab("ESP", 4)
+
+local SettingsTab =
+    Window:CreateTab("Settings", 5)
 
 --==================================================
 -- CREATE CONTROLLERS
 --==================================================
 
-local Window = GUI
-
 local BugScanner = Scanner.new(CONFIG)
 
-local MovementController = Movement.new(CONFIG)
+local MovementController =
+    Movement.new(CONFIG)
 
 local CollectibleScannerController =
     CollectibleScanner.new(CONFIG)
 
 --==================================================
--- STATUS VARIABLES
+-- STATUS
 --==================================================
 
 local BugStatus = "Stopped"
@@ -123,56 +181,109 @@ local BugFarm
 local CollectibleFarm
 local ESPController
 
+local BugToggle
+local CollectibleToggle
+local ESPToggle
+
+local SyncingToggles = false
+local Destroyed = false
+
 --==================================================
--- HELPERS
+-- HELPER FUNCTIONS
 --==================================================
 
+local function Notify(message, duration)
+
+    Window:Notify(
+        tostring(message),
+        duration or 3
+    )
+
+end
+
+local function SafeCall(label, callback)
+
+    local success, result = xpcall(
+        callback,
+        debug.traceback
+    )
+
+    if not success then
+
+        warn(
+            "[Bug Evolution] "
+            .. label
+            .. "\n"
+            .. tostring(result)
+        )
+
+        Notify(
+            label .. " failed. Check executor console.",
+            5
+        )
+
+    end
+
+    return success, result
+
+end
+
 local function GetTargetName(target)
+
     if not target then
         return "None"
     end
 
-    local instance = target.Instance or target
+    if type(target) == "table" then
 
-    if typeof(instance) == "Instance" then
-        return instance.Name
+        if target.Name then
+            return tostring(target.Name)
+        end
+
+        if target.Instance then
+            return target.Instance.Name
+        end
+
     end
 
-    return tostring(instance)
+    if typeof(target) == "Instance" then
+        return target.Name
+    end
+
+    return tostring(target)
+
 end
 
-local function SetLabelText(label, text)
-    if not label then
+local function UpdateLabel(label, value)
+
+    if label then
+        label.Text = tostring(value)
+    end
+
+end
+
+local function SetToggleVisual(toggle, value)
+
+    if not toggle then
         return
     end
 
-    pcall(function()
-        if typeof(label) == "Instance" then
-            label.Text = text
-        elseif type(label) == "table" then
-            if label.Label then
-                label.Label.Text = text
-            elseif label.TextLabel then
-                label.TextLabel.Text = text
-            elseif label.Instance then
-                label.Instance.Text = text
-            end
-        end
-    end)
-end
+    SyncingToggles = true
 
-local function Notify(title, message, duration)
-    Window:Notify(
-        tostring(title) .. " | " .. tostring(message),
-        duration or 3
-    )
+    pcall(function()
+        toggle.Set(value)
+    end)
+
+    SyncingToggles = false
+
 end
 
 --==================================================
--- FARMING CALLBACKS
+-- CREATE FARMING CONTROLLERS
 --==================================================
 
 BugFarm = Farming.new({
+
     Settings = CONFIG,
 
     Scanner = BugScanner,
@@ -180,104 +291,175 @@ BugFarm = Farming.new({
     Movement = MovementController,
 
     OnStatusChanged = function(status, target)
+
         BugStatus = tostring(status)
 
         if target then
             BugTargetName = GetTargetName(target)
-        elseif BugStatus == "Stopped"
+        end
+
+        if BugStatus == "Stopped"
             or BugStatus == "Idle" then
 
             BugTargetName = "None"
+
         end
+
     end,
+
 })
 
 CollectibleFarm = CollectibleFarming.new({
+
     Settings = CONFIG,
 
     Scanner = CollectibleScannerController,
 
     Movement = MovementController,
 
-    OnStatusChanged = function(status, target)
+    OnStatusChanged = function(status)
+
         CollectibleStatus = tostring(status)
 
-        if target then
-            CollectibleTargetName = GetTargetName(target)
-        elseif CollectibleStatus == "Stopped"
+        if CollectibleStatus == "Stopped"
             or CollectibleStatus == "Idle" then
 
             CollectibleTargetName = "None"
+
         end
+
     end,
+
 })
 
 ESPController = ESP.new({
+
     Settings = CONFIG,
 
     Scanner = BugScanner,
+
 })
 
 --==================================================
--- GUI TABS
+-- FARM CONTROL
 --==================================================
 
-Window:CreateTab("Farm")
-Window:CreateTab("Collectibles")
-Window:CreateTab("Bugs")
-Window:CreateTab("ESP")
-Window:CreateTab("Settings")
+local function StopBugFarm()
+
+    CONFIG.FarmEnabled = false
+
+    BugFarm:Stop()
+
+    BugStatus = "Stopped"
+    BugTargetName = "None"
+
+end
+
+local function StopCollectibleFarm()
+
+    CONFIG.CollectibleEnabled = false
+
+    CollectibleFarm:Stop()
+
+    CollectibleStatus = "Stopped"
+    CollectibleTargetName = "None"
+
+end
+
+local function StartBugFarm()
+
+    -- Prevent simultaneous farming.
+
+    StopCollectibleFarm()
+
+    SetToggleVisual(
+        CollectibleToggle,
+        false
+    )
+
+    CONFIG.FarmEnabled = true
+
+    BugFarm:Start()
+
+    Notify(
+        "Bug Farming Enabled"
+    )
+
+end
+
+local function StartCollectibleFarm()
+
+    -- Prevent simultaneous farming.
+
+    StopBugFarm()
+
+    SetToggleVisual(
+        BugToggle,
+        false
+    )
+
+    CONFIG.CollectibleEnabled = true
+
+    CollectibleFarm:Start(
+        CONFIG.CollectibleMode
+    )
+
+    Notify(
+        CONFIG.CollectibleMode
+        .. " Farming Enabled"
+    )
+
+end
 
 --==================================================
 -- FARM TAB
 --==================================================
 
-Window:AddSection("Farm", "Bug Farming")
+Window:AddSection(
+    FarmTab,
+    "Bug Farming"
+)
 
 local BugStatusLabel = Window:AddLabel(
-    "Farm",
+    FarmTab,
     "Status: Stopped"
 )
 
 local BugTargetLabel = Window:AddLabel(
-    "Farm",
+    FarmTab,
     "Target: None"
 )
 
-Window:AddToggle(
-    "Farm",
+BugToggle = Window:AddToggle(
+    FarmTab,
     "Enable Bug Farming",
     false,
 
     function(enabled)
-        if enabled then
-            -- Stop collectible farming first
-            CollectibleFarm:Stop()
 
-            CONFIG.CollectibleEnabled = false
-            CONFIG.FarmEnabled = true
-
-            BugFarm:Start()
-
-            Notify(
-                "Bug Evolution",
-                "Bug Farming Enabled"
-            )
-        else
-            CONFIG.FarmEnabled = false
-
-            BugFarm:Stop()
-
-            Notify(
-                "Bug Evolution",
-                "Bug Farming Disabled"
-            )
+        if SyncingToggles then
+            return
         end
+
+        SafeCall("Bug Farming", function()
+
+            if enabled then
+                StartBugFarm()
+            else
+                StopBugFarm()
+
+                Notify(
+                    "Bug Farming Disabled"
+                )
+            end
+
+        end)
+
     end
 )
 
 Window:AddDropdown(
-    "Farm",
+    FarmTab,
     "Movement Mode",
     {
         "Tween",
@@ -286,12 +468,14 @@ Window:AddDropdown(
     CONFIG.MovementMode,
 
     function(value)
+
         CONFIG.MovementMode = value
+
     end
 )
 
 Window:AddDropdown(
-    "Farm",
+    FarmTab,
     "Bug Priority",
     {
         "Largest First",
@@ -302,19 +486,23 @@ Window:AddDropdown(
     CONFIG.SizePriority,
 
     function(value)
+
         CONFIG.SizePriority = value
+
     end
 )
 
 Window:AddSlider(
-    "Farm",
+    FarmTab,
     "Attack Distance",
     3,
     20,
     CONFIG.AttackDistance,
 
     function(value)
+
         CONFIG.AttackDistance = value
+
     end
 )
 
@@ -323,22 +511,22 @@ Window:AddSlider(
 --==================================================
 
 Window:AddSection(
-    "Collectibles",
+    CollectiblesTab,
     "Collectible Farming"
 )
 
 local CollectibleStatusLabel = Window:AddLabel(
-    "Collectibles",
+    CollectiblesTab,
     "Status: Stopped"
 )
 
 local CollectibleTargetLabel = Window:AddLabel(
-    "Collectibles",
+    CollectiblesTab,
     "Target: None"
 )
 
 Window:AddDropdown(
-    "Collectibles",
+    CollectiblesTab,
     "Farming Mode",
     {
         "Orb",
@@ -348,47 +536,41 @@ Window:AddDropdown(
     CONFIG.CollectibleMode,
 
     function(value)
+
         CONFIG.CollectibleMode = value
 
         Notify(
-            "Collectible Mode",
             "Selected: " .. value
         )
+
     end
 )
 
-Window:AddToggle(
-    "Collectibles",
+CollectibleToggle = Window:AddToggle(
+    CollectiblesTab,
     "Enable Collectible Farming",
     false,
 
     function(enabled)
-        if enabled then
-            -- Stop bug farming first
-            BugFarm:Stop()
 
-            CONFIG.FarmEnabled = false
-            CONFIG.CollectibleEnabled = true
-
-            CollectibleFarm:Start(
-                CONFIG.CollectibleMode
-            )
-
-            Notify(
-                "Bug Evolution",
-                CONFIG.CollectibleMode
-                .. " Farming Enabled"
-            )
-        else
-            CONFIG.CollectibleEnabled = false
-
-            CollectibleFarm:Stop()
-
-            Notify(
-                "Bug Evolution",
-                "Collectible Farming Disabled"
-            )
+        if SyncingToggles then
+            return
         end
+
+        SafeCall("Collectible Farming", function()
+
+            if enabled then
+                StartCollectibleFarm()
+            else
+                StopCollectibleFarm()
+
+                Notify(
+                    "Collectible Farming Disabled"
+                )
+            end
+
+        end)
+
     end
 )
 
@@ -397,18 +579,19 @@ Window:AddToggle(
 --==================================================
 
 Window:AddSection(
-    "Bugs",
+    BugsTab,
     "Species Scanner"
 )
 
 local SpeciesLabel = Window:AddLabel(
-    "Bugs",
+    BugsTab,
     "Detected Species: Loading..."
 )
 
 local SpeciesDropdown
 
 local function RefreshSpecies()
+
     BugScanner:Refresh()
 
     local species = BugScanner:GetSpecies()
@@ -418,29 +601,41 @@ local function RefreshSpecies()
     }
 
     for _, name in ipairs(species) do
-        table.insert(options, name)
+
+        table.insert(
+            options,
+            name
+        )
+
     end
 
     if SpeciesDropdown then
-        -- The GUI module's SetOptions uses dot syntax.
-        pcall(function()
-            SpeciesDropdown.SetOptions(options)
-        end)
+
+        SpeciesDropdown.SetOptions(
+            options
+        )
+
     end
 
-    SetLabelText(
+    -- Reset invalid selection.
+
+    if not table.find(options, CONFIG.SelectedSpecies) then
+        CONFIG.SelectedSpecies = "All Bugs"
+    end
+
+    UpdateLabel(
         SpeciesLabel,
-        "Detected Species: " .. tostring(#species)
+        "Detected Species: " .. #species
     )
 
     Notify(
-        "Bug Scanner",
-        tostring(#species) .. " species detected"
+        #species .. " species detected"
     )
+
 end
 
 SpeciesDropdown = Window:AddDropdown(
-    "Bugs",
+    BugsTab,
     "Select Species",
     {
         "All Bugs",
@@ -448,14 +643,23 @@ SpeciesDropdown = Window:AddDropdown(
     CONFIG.SelectedSpecies,
 
     function(value)
+
         CONFIG.SelectedSpecies = value
+
     end
 )
 
 Window:AddButton(
-    "Bugs",
+    BugsTab,
     "Refresh Species",
-    RefreshSpecies
+    function()
+
+        SafeCall(
+            "Species Scanner",
+            RefreshSpecies
+        )
+
+    end
 )
 
 --==================================================
@@ -463,38 +667,46 @@ Window:AddButton(
 --==================================================
 
 Window:AddSection(
-    "ESP",
+    ESPTab,
     "Bug ESP"
 )
 
-Window:AddToggle(
-    "ESP",
+ESPToggle = Window:AddToggle(
+    ESPTab,
     "Enable Bug ESP",
     false,
 
     function(enabled)
-        CONFIG.ESPEnabled = enabled
 
-        if enabled then
-            ESPController:Enable()
-
-            Notify(
-                "Bug ESP",
-                "ESP Enabled"
-            )
-        else
-            ESPController:Disable()
-
-            Notify(
-                "Bug ESP",
-                "ESP Disabled"
-            )
+        if SyncingToggles then
+            return
         end
+
+        SafeCall("Bug ESP", function()
+
+            CONFIG.ESPEnabled = enabled
+
+            if enabled then
+
+                ESPController:Enable()
+
+                Notify("ESP Enabled")
+
+            else
+
+                ESPController:Disable()
+
+                Notify("ESP Disabled")
+
+            end
+
+        end)
+
     end
 )
 
 Window:AddDropdown(
-    "ESP",
+    ESPTab,
     "Size Filter",
     {
         "Normal",
@@ -508,23 +720,27 @@ Window:AddDropdown(
     CONFIG.ESPFilter,
 
     function(value)
+
         CONFIG.ESPFilter = value
 
         if CONFIG.ESPEnabled then
             ESPController:Refresh()
         end
+
     end
 )
 
 Window:AddSlider(
-    "ESP",
+    ESPTab,
     "Maximum Distance",
     100,
     5000,
     CONFIG.ESPMaxDistance,
 
     function(value)
+
         CONFIG.ESPMaxDistance = value
+
     end
 )
 
@@ -533,150 +749,207 @@ Window:AddSlider(
 --==================================================
 
 Window:AddSection(
-    "Settings",
+    SettingsTab,
     "General Settings"
 )
 
 Window:AddLabel(
-    "Settings",
-    "Bug Evolution v1.0.0"
+    SettingsTab,
+    "Bug Evolution v1.1.0"
 )
 
 Window:AddButton(
-    "Settings",
+    SettingsTab,
     "Refresh All Scanners",
 
     function()
-        BugScanner:Refresh()
 
-        CollectibleScannerController:RefreshFolders()
+        SafeCall("Refresh All Scanners", function()
 
-        RefreshSpecies()
+            BugScanner:Refresh()
 
-        Notify(
-            "Bug Evolution",
-            "All scanners refreshed"
-        )
+            CollectibleScannerController:RefreshFolders()
+
+            RefreshSpecies()
+
+            Notify(
+                "All scanners refreshed"
+            )
+
+        end)
+
     end
 )
 
 Window:AddButton(
-    "Settings",
+    SettingsTab,
     "Stop All Farming",
 
     function()
-        BugFarm:Stop()
-        CollectibleFarm:Stop()
+
+        StopBugFarm()
+        StopCollectibleFarm()
 
         MovementController:Stop()
 
-        CONFIG.FarmEnabled = false
-        CONFIG.CollectibleEnabled = false
+        SetToggleVisual(
+            BugToggle,
+            false
+        )
+
+        SetToggleVisual(
+            CollectibleToggle,
+            false
+        )
 
         Notify(
-            "Bug Evolution",
             "All farming stopped"
         )
+
     end
 )
 
 Window:AddButton(
-    "Settings",
+    SettingsTab,
+    "Disable ESP",
+
+    function()
+
+        CONFIG.ESPEnabled = false
+
+        ESPController:Disable()
+
+        SetToggleVisual(
+            ESPToggle,
+            false
+        )
+
+        Notify(
+            "ESP Disabled"
+        )
+
+    end
+)
+
+Window:AddButton(
+    SettingsTab,
     "Destroy GUI",
 
     function()
-        BugFarm:Stop()
-        CollectibleFarm:Stop()
+
+        if Destroyed then
+            return
+        end
+
+        Destroyed = true
+
+        StopBugFarm()
+        StopCollectibleFarm()
 
         ESPController:Disable()
 
         MovementController:Stop()
 
-        CONFIG.FarmEnabled = false
-        CONFIG.CollectibleEnabled = false
         CONFIG.ESPEnabled = false
 
         Window:Destroy()
+
     end
 )
 
 --==================================================
--- LIVE STATUS UPDATE
+-- LIVE STATUS
 --==================================================
 
 task.spawn(function()
-    while task.wait(0.5) do
-        if not Window then
-            break
-        end
+
+    while not Destroyed do
+
+        task.wait(0.5)
 
         if CONFIG.FarmEnabled then
-            local target = BugFarm:GetCurrentTarget()
+
+            local target =
+                BugFarm:GetCurrentTarget()
 
             if target then
-                BugTargetName = GetTargetName(target)
+
+                BugTargetName =
+                    GetTargetName(target)
+
             end
 
-            BugStatus = tostring(
-                BugFarm:GetStatus()
-            )
+            BugStatus =
+                tostring(BugFarm:GetStatus())
+
         end
 
         if CONFIG.CollectibleEnabled then
+
             local target =
                 CollectibleFarm:GetCurrentTarget()
 
             if target then
+
                 CollectibleTargetName =
                     GetTargetName(target)
+
             end
 
-            CollectibleStatus = tostring(
-                CollectibleFarm:GetStatus()
-            )
+            CollectibleStatus =
+                tostring(CollectibleFarm:GetStatus())
+
         end
 
-        SetLabelText(
+        UpdateLabel(
             BugStatusLabel,
             "Status: " .. BugStatus
         )
 
-        SetLabelText(
+        UpdateLabel(
             BugTargetLabel,
             "Target: " .. BugTargetName
         )
 
-        SetLabelText(
+        UpdateLabel(
             CollectibleStatusLabel,
             "Status: " .. CollectibleStatus
         )
 
-        SetLabelText(
+        UpdateLabel(
             CollectibleTargetLabel,
             "Target: " .. CollectibleTargetName
         )
+
     end
+
 end)
 
 --==================================================
 -- INITIALIZATION
 --==================================================
 
-BugScanner:Refresh()
+SafeCall(
+    "Initial Scanner",
+    function()
 
-CollectibleScannerController:RefreshFolders()
+        BugScanner:Refresh()
 
-RefreshSpecies()
+        CollectibleScannerController:RefreshFolders()
+
+        RefreshSpecies()
+
+    end
+)
 
 Window:SetTab("Farm")
 
 Notify(
-    "Bug Evolution",
-    "Successfully Loaded!",
+    "BUG EVOLUTION v1.1.0 LOADED",
     5
 )
 
 print("================================")
-print("       BUG EVOLUTION v1.0.0")
-print("       Successfully Loaded")
+print("       BUG EVOLUTION v1.1.0")
+print("       GUI INITIALIZED")
 print("================================")
