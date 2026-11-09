@@ -274,7 +274,7 @@ local mode =
 if self.CurrentMode == "Breakable" then
 
     local success =
-        self.Movement:MoveTo(target.Instance)
+        self.Movement:MoveToBreakable(target.Instance)
 
     if not success then
         return false
@@ -298,9 +298,7 @@ local destination =
 
 if mode == "Teleport" then
 
-    root.CFrame = destination
-
-    return true
+    return self.Movement:MoveToCFrame(destination, target.Instance)
 
 elseif mode == "Tween" then
 
@@ -318,32 +316,10 @@ elseif mode == "Tween" then
         10
     )
 
-    local tween = TweenService:Create(
-        root,
-        TweenInfo.new(
-            duration,
-            Enum.EasingStyle.Linear
-        ),
-        {
-            CFrame = destination
-        }
-    )
-
-    self.ActiveTween = tween
-
-    tween:Play()
-
-    local state = tween.Completed:Wait()
-
-    if self.ActiveTween == tween then
-        self.ActiveTween = nil
-    end
-
-    if state ~= Enum.PlaybackState.Completed then
-        return false
-    end
-
-    return self.Running
+    return self.Movement:MoveToCFrame(
+        destination,
+        target.Instance
+    ) and self.Movement:WaitForMovement() and self.Running
 
 end
 
