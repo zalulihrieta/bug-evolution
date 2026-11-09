@@ -100,7 +100,7 @@ local ESP = LoadModule("modules/esp.lua")
 -- CREATE CONTROLLERS
 --==================================================
 
-local Window = GUI()
+local Window = GUI
 
 local BugScanner = Scanner.new(CONFIG)
 
@@ -163,8 +163,7 @@ end
 
 local function Notify(title, message, duration)
     Window:Notify(
-        title,
-        message,
+        tostring(title) .. " | " .. tostring(message),
         duration or 3
     )
 end
