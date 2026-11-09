@@ -61,8 +61,8 @@ Screen.Parent = Parent
 
 local Main = Instance.new("Frame")
 Main.Name = "Main"
-Main.Size = UDim2.fromOffset(340, 400)
-Main.Position = UDim2.new(0.5, -170, 0.5, -200)
+Main.Size = UDim2.fromOffset(340, 320)
+Main.Position = UDim2.new(0.5, -170, 0.5, -160)
 Main.BackgroundColor3 = Theme.Background
 Main.BorderSizePixel = 0
 Main.ClipsDescendants = true
@@ -752,7 +752,7 @@ Minimize.MouseButton1Click:Connect(function()
 
     local targetSize = minimized
         and UDim2.fromOffset(210, 42)
-        or UDim2.fromOffset(340, 400)
+        or UDim2.fromOffset(340, 320)
 
     TweenService:Create(
         Main,
