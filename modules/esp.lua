@@ -388,7 +388,8 @@ function ESP:Refresh()
         or DEFAULT_SETTINGS.ESPMaxDistance
 
     local filter =
-        self.Settings.ESPFilter or "Normal"
+        self.Settings.ESPFilter or "All Sizes"
+    local speciesFilter = self.Settings.ESPSpecies or "All Bugs"
 
     for _, bug in ipairs(bugs) do
 
@@ -400,12 +401,11 @@ function ESP:Refresh()
                 self.Scanner:GetDistance(model)
 
             local matchesFilter =
-                self.Scanner:MatchesSizeFilter(
-                    model,
-                    filter
-                )
+                self.Scanner:MatchesSizeFilter(model, filter)
+            local matchesSpecies =
+                speciesFilter == "All Bugs" or bug.Species == speciesFilter
 
-            if matchesFilter and distance <= maxDistance then
+            if matchesFilter and matchesSpecies and distance <= maxDistance then
 
                 activeModels[model] = true
 
