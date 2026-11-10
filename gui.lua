@@ -450,11 +450,9 @@ function GUI:AddDropdown(page, text, options, default, callback)
 
     local function ClosePopup()
         if popup then
+            if OpenPopup == popup then OpenPopup = nil end
             popup:Destroy()
             popup = nil
-        end
-        if OpenPopup == popup then
-            OpenPopup = nil
         end
         if OutsidePopupButton then
             OutsidePopupButton:Destroy()
@@ -583,7 +581,7 @@ end
 
 -- SLIDER
 
-function GUI:AddSlider(page, text, min, max, default, callback)
+function GUI:AddSlider(page, text, min, max, default, callback, step)
 
     local holder = CreateRow(page, 58)
 
@@ -617,8 +615,10 @@ function GUI:AddSlider(page, text, min, max, default, callback)
 
     local function Set(v)
 
+        step = tonumber(step) or 1
+        step = math.max(step, 0.001)
         value = math.clamp(
-            math.floor(v + 0.5),
+            min + math.floor(((tonumber(v) or min) - min) / step + 0.5) * step,
             min,
             max
         )
@@ -627,7 +627,7 @@ function GUI:AddSlider(page, text, min, max, default, callback)
 
         fill.Size = UDim2.new(alpha, 0, 1, 0)
 
-        label.Text = text .. " : " .. value
+        label.Text = text .. " : " .. (step < 1 and string.format("%.2f", value) or tostring(math.floor(value + 0.5)))
 
         if callback then
             callback(value)
