@@ -64,6 +64,7 @@ Main.Name = "Main"
 Main.Size = UDim2.fromOffset(340, 320)
 Main.Position = UDim2.new(0.5, -170, 0.5, -160)
 Main.BackgroundColor3 = Theme.Background
+Main.BackgroundTransparency = 0.14
 Main.BorderSizePixel = 0
 Main.ClipsDescendants = true
 Main.Parent = Screen
@@ -110,10 +111,15 @@ Instance.new("UICorner", Minimize).CornerRadius =
 
 -- NAVIGATION
 
-local Sidebar = Instance.new("Frame")
+local Sidebar = Instance.new("ScrollingFrame")
 Sidebar.Position = UDim2.fromOffset(8, 50)
 Sidebar.Size = UDim2.new(1, -16, 0, 35)
 Sidebar.BackgroundTransparency = 1
+Sidebar.BorderSizePixel = 0
+Sidebar.ScrollBarThickness = 0
+Sidebar.ScrollingDirection = Enum.ScrollingDirection.X
+Sidebar.CanvasSize = UDim2.new(0, 0, 0, 0)
+Sidebar.AutomaticCanvasSize = Enum.AutomaticSize.X
 Sidebar.Parent = Main
 
 local NavLayout = Instance.new("UIListLayout")
@@ -133,6 +139,19 @@ Content.Parent = Main
 local Tabs = {}
 local Buttons = {}
 local CurrentTab
+local OpenPopup
+local OutsidePopupButton
+
+local function CloseAllPopups()
+    if OpenPopup then
+        OpenPopup:Destroy()
+        OpenPopup = nil
+    end
+    if OutsidePopupButton then
+        OutsidePopupButton:Destroy()
+        OutsidePopupButton = nil
+    end
+end
 
 -- UTILITY
 
@@ -256,6 +275,7 @@ function GUI:SetTab(name)
     end
 
     CurrentTab = name
+    CloseAllPopups()
 
     for tab, page in pairs(Tabs) do
 
@@ -429,12 +449,17 @@ function GUI:AddDropdown(page, text, options, default, callback)
     local popup
 
     local function ClosePopup()
-
         if popup then
             popup:Destroy()
             popup = nil
         end
-
+        if OpenPopup == popup then
+            OpenPopup = nil
+        end
+        if OutsidePopupButton then
+            OutsidePopupButton:Destroy()
+            OutsidePopupButton = nil
+        end
     end
 
     local function SetOptions(newOptions)
@@ -451,11 +476,20 @@ function GUI:AddDropdown(page, text, options, default, callback)
 
     button.MouseButton1Click:Connect(function()
 
-        ClosePopup()
+        CloseAllPopups()
 
         if #options == 0 then
             return
         end
+
+        OutsidePopupButton = Create("TextButton", {
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            Text = "",
+            AutoButtonColor = false,
+            ZIndex = 19
+        }, Screen)
+        OutsidePopupButton.MouseButton1Click:Connect(CloseAllPopups)
 
         popup = Create("Frame", {
             Size = UDim2.fromOffset(190, math.min(#options * 30, 180)),
@@ -476,6 +510,7 @@ function GUI:AddDropdown(page, text, options, default, callback)
         )
 
         Corner(popup)
+        OpenPopup = popup
 
         local list = Create("ScrollingFrame", {
             Size = UDim2.fromScale(1, 1),
@@ -767,6 +802,8 @@ end)
 -- DESTROY
 
 function GUI:Destroy()
+
+    CloseAllPopups()
 
     if Screen then
         Screen:Destroy()
