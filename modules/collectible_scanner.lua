@@ -173,7 +173,12 @@ function Scanner:Scan(mode)
 
     for _, object in ipairs(folder:GetChildren()) do
 
-        local root = GetRoot(object)
+        local selectedBreakable = self.Settings.SelectedBreakable or "All"
+        local nameMatches = mode ~= "Breakable"
+            or selectedBreakable == "All"
+            or object.Name == selectedBreakable
+
+        local root = nameMatches and GetRoot(object) or nil
 
         if root then
 
@@ -231,6 +236,25 @@ end
 --==================================================
 -- BREAKABLE: RANDOM NEAREST
 --==================================================
+
+function Scanner:GetBreakableNames()
+    local folder = self:GetFolder("Breakable")
+    local names = {"All"}
+    if not folder then return names end
+    local seen = {}
+    for _, object in ipairs(folder:GetChildren()) do
+        if not seen[object.Name] then
+            seen[object.Name] = true
+            table.insert(names, object.Name)
+        end
+    end
+    table.sort(names, function(a, b)
+        if a == "All" then return true end
+        if b == "All" then return false end
+        return a < b
+    end)
+    return names
+end
 
 function Scanner:GetBreakableTarget()
 
