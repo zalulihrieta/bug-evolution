@@ -140,16 +140,16 @@ local Tabs = {}
 local Buttons = {}
 local CurrentTab
 local OpenPopup
-local OutsidePopupButton
+local OutsideInputConnection
 
 local function CloseAllPopups()
     if OpenPopup then
         OpenPopup:Destroy()
         OpenPopup = nil
     end
-    if OutsidePopupButton then
-        OutsidePopupButton:Destroy()
-        OutsidePopupButton = nil
+    if OutsideInputConnection then
+        OutsideInputConnection:Disconnect()
+        OutsideInputConnection = nil
     end
 end
 
@@ -454,9 +454,9 @@ function GUI:AddDropdown(page, text, options, default, callback)
             popup:Destroy()
             popup = nil
         end
-        if OutsidePopupButton then
-            OutsidePopupButton:Destroy()
-            OutsidePopupButton = nil
+        if OutsideInputConnection then
+            OutsideInputConnection:Disconnect()
+            OutsideInputConnection = nil
         end
     end
 
@@ -480,15 +480,6 @@ function GUI:AddDropdown(page, text, options, default, callback)
             return
         end
 
-        OutsidePopupButton = Create("TextButton", {
-            Size = UDim2.fromScale(1, 1),
-            BackgroundTransparency = 1,
-            Text = "",
-            AutoButtonColor = false,
-            ZIndex = 19
-        }, Screen)
-        OutsidePopupButton.MouseButton1Click:Connect(CloseAllPopups)
-
         popup = Create("Frame", {
             Size = UDim2.fromOffset(190, math.min(#options * 30, 180)),
             Position = UDim2.fromOffset(
@@ -509,6 +500,16 @@ function GUI:AddDropdown(page, text, options, default, callback)
 
         Corner(popup)
         OpenPopup = popup
+        OutsideInputConnection = UIS.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1
+                and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            if not popup or not popup.Parent then return end
+            local p = input.Position
+            local a, z = popup.AbsolutePosition, popup.AbsoluteSize
+            local inside = p.X >= a.X and p.X <= a.X + z.X
+                and p.Y >= a.Y and p.Y <= a.Y + z.Y
+            if not inside then ClosePopup() end
+        end)
 
         local list = Create("ScrollingFrame", {
             Size = UDim2.fromScale(1, 1),
