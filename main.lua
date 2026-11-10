@@ -178,9 +178,6 @@ end)
 Window:AddDropdown(BugTab, "Bug Value / Size", {"All Sizes", "Large", "Small", "Normal (Random)"}, CONFIG.BugSizeFilter, function(v)
     CONFIG.BugSizeFilter = v
 end)
-Window:AddDropdown(BugTab, "Bug Species", {"All Bugs"}, CONFIG.SelectedSpecies, function(v)
-    CONFIG.SelectedSpecies = v
-end)
 Window:AddDropdown(BugTab, "Target Priority", {"Largest First", "Smallest First", "Nearest First", "Random Size (Nearest)"}, CONFIG.SizePriority, function(v)
     CONFIG.SizePriority = v
 end)
@@ -195,10 +192,6 @@ BreakableToggle = Window:AddToggle(BreakableTab, "Enable Breakable Farming", fal
         if enabled then StartCollectibleFarm("Breakable") else StopCollectibleFarm() end
     end)
 end)
-Window:AddDropdown(BreakableTab, "Breakable Type", {"All"}, CONFIG.SelectedBreakable, function(v)
-    CONFIG.SelectedBreakable = v
-end)
-BreakableDropdown = nil
 Window:AddButton(BreakableTab, "Refresh Breakable Types", function()
     local options = CollectibleScannerController:GetBreakableNames()
     if BreakableDropdown then BreakableDropdown.SetOptions(options) end
@@ -242,10 +235,6 @@ ESPToggle = Window:AddToggle(ESPTab, "Enable ESP", false, function(enabled)
 end)
 Window:AddDropdown(ESPTab, "Bug Value / Size", {"All Sizes", "Large", "Small", "Normal (Random)"}, CONFIG.ESPFilter, function(v)
     CONFIG.ESPFilter = v
-    if CONFIG.ESPEnabled then ESPController:Refresh() end
-end)
-Window:AddDropdown(ESPTab, "Bug Species", {"All Bugs"}, CONFIG.ESPSpecies, function(v)
-    CONFIG.ESPSpecies = v
     if CONFIG.ESPEnabled then ESPController:Refresh() end
 end)
 Window:AddSlider(ESPTab, "Maximum Distance", 100, 5000, CONFIG.ESPMaxDistance, function(v)
