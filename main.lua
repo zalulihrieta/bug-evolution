@@ -143,6 +143,8 @@ end
 local function StartCollectibleFarm(mode)
     StopBugFarm()
     SetToggleVisual(BugToggle, false)
+    SetToggleVisual(BreakableToggle, mode == "Breakable")
+    SetToggleVisual(OrbToggle, mode == "Orb" or mode == "VoidOrb")
     CONFIG.CollectibleMode = mode
     CONFIG.CollectibleEnabled = true
     CollectibleFarm:Start(mode)
