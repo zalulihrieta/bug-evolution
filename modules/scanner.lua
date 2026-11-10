@@ -547,10 +547,26 @@ function Scanner:GetSortedBugs(species, priority)
         species or self.Settings.SelectedSpecies or "All Bugs"
     )
 
-    return self:SortBugs(
-        bugs,
-        priority
-    )
+    local sizeFilter = self.Settings.BugSizeFilter or "All Sizes"
+    local filtered = {}
+
+    for _, bug in ipairs(bugs) do
+        local matches = sizeFilter == "All Sizes"
+            or (sizeFilter == "Large" and bug.Size == "Large")
+            or (sizeFilter == "Small" and bug.Size == "Small")
+            or (sizeFilter == "Normal (Random)" and bug.Size == "Normal")
+        if matches then table.insert(filtered, bug) end
+    end
+
+    if sizeFilter == "Normal (Random)" then
+        for i = #filtered, 2, -1 do
+            local j = math.random(1, i)
+            filtered[i], filtered[j] = filtered[j], filtered[i]
+        end
+        return filtered
+    end
+
+    return self:SortBugs(filtered, priority)
 
 end
 
@@ -600,24 +616,12 @@ function Scanner:MatchesSizeFilter(model, filter)
         return false
     end
 
-    filter = filter or "Normal"
+    filter = filter or "All Sizes"
 
-    -- Normal means ALL sizes.
-    if filter == "Normal" then
-        return true
-    end
-
-    if filter == "Massive" then
-        return info.SizeRank == SIZE_RANK.Massive
-    end
-
-    local minimumRank = SIZE_RANK[filter]
-
-    if not minimumRank then
-        return true
-    end
-
-    return info.SizeRank >= minimumRank
+    if filter == "All Sizes" then return true end
+    if filter == "Normal (Random)" then return info.Size == "Normal" end
+    if SIZE_RANK[filter] then return info.Size == filter end
+    return true
 
 end
 
